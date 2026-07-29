@@ -3,4 +3,6 @@ project(cpu)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(cpu main.cpp)
+file(GLOB SOURCES "src/*.cpp")
+add_executable(cpu main.cpp ${SOURCES})
+target_include_directories(cpu PRIVATE include)
