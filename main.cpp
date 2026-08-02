@@ -13,7 +13,7 @@ int main() {
     storage.load(std::cin);
     int32_t registers[32] = {0};
     uint8_t ans = run_naive(storage, registers);
-    std::cout << ans << std::endl;
+    std::cout << static_cast<int>(ans) << std::endl;
     return 0;
 }
 
