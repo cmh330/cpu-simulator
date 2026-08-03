@@ -29,6 +29,7 @@ private:
     bool termination_seen = false;
     bool halted = false;
     long cycles = 0;
+    long global_commit_counter = 0;
 
     static bool is_mem_op(Opcode op);
     static bool is_store_op(Opcode op);

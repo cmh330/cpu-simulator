@@ -101,6 +101,9 @@ bool LSQ::is_blocked_by_store(const Lsq entries[LSQ_SIZE], int rob_head, int loa
             if (!is_older) continue;
  
             int compare_key = entries[i].store_commited ? load_dist : d;
+            if (entries[i].store_commited) {
+                compare_key = 1000000 + entries[i].commit_order;
+            } else compare_key = d;
             if (best_idx == -1 || compare_key > best_dist) {
                 best_idx = i;
                 best_dist = compare_key;
@@ -258,7 +261,7 @@ void LSQ::sync() {
 // store_commit_tag: 此刻ROB通知这个标签的store可以写内存了，NO_TAG表示没有
 void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob_head,
                bool issue_is_store, int issue_qj, int32_t issue_vj, int32_t issue_imm,
-               int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_tag) {
+               int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_tag, long global_commit_counter) {
     for (int i = 0; i < LSQ_SIZE; ++i) lsq_new[i] = lsq_old[i];
     count_new = count_old;
 
@@ -297,6 +300,7 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
         for (int i = 0; i < LSQ_SIZE; ++i) {
             if (lsq_old[i].tag == store_commit_tag && !lsq_old[i].available && lsq_old[i].is_store) {
                 lsq_new[i].store_commited = true;
+                lsq_new[i].commit_order = global_commit_counter;
             }
         }
     }

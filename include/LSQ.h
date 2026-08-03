@@ -20,6 +20,7 @@ struct Lsq {
     int tag = NO_TAG; // 发布时ROB分配的标签，load：用tag广播结果，store：看是否轮到提交
     bool store_commited = false; // store时才用，记录ROB是否已经允许他真正写内存
     int remaining_cycles = -1; // >= 0才开始访问内存
+    int commit_order = -1; 
 };
 
 class LSQ {
@@ -53,6 +54,6 @@ public:
     void sync();
     void step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob_head,
               bool issue_is_store, int issue_qj, int32_t issue_vj, int32_t issue_imm,
-              int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_head);
+              int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_head, long global_commit_counter);
     int get_store_ready_tag(int rob_head) const;
 };

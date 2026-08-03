@@ -288,9 +288,12 @@ void CPU::step_once() {
     rs.step(cdb, rs_op, rs_vj, rs_qj, rs_vk, rs_qk,
             issue_to_rs ? final_tag : NO_TAG, rs_is_branch,
             flush_tag, rob_head);
+    if (store_commit_tag != NO_TAG) {
+        ++global_commit_counter;
+    }
     lsq.step(storage, cdb, store_commit_tag, rob_head, lsq_is_store, 
              lsq_qj, lsq_vj, lsq_imm, lsq_qk, lsq_vk, lsq_size, lsq_unsigned, 
-             issue_to_lsq ? final_tag : NO_TAG, flush_tag);
+             issue_to_lsq ? final_tag : NO_TAG, flush_tag, global_commit_counter);
     rob.step(cdb, branch_result.tag, branch_result.actual_jump, store_ready_tag, 
              issue_valid, rob_issue_type, rob_issue_dest_reg, fetch_pc, rob_issue_target, rob_issue_predict);
     reg_status.step(regs_status_clear_tag, issue_valid ? rob_issue_dest_reg : 0,
