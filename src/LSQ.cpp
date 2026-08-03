@@ -87,11 +87,23 @@ bool LSQ::is_blocked_by_store(const Lsq entries[LSQ_SIZE], int rob_head, int loa
         int best_idx = -1, best_dist = -1;
         for (int i = 0; i < LSQ_SIZE; ++i) {
             if (visited[i] || entries[i].available || !entries[i].is_store) continue;
-            int d = age_distance(entries[i].tag, rob_head);
-            if (d >= load_dist) continue; // 不比load老，跳过
-            if (best_idx == -1 || d > best_dist) { 
-                best_idx = i; 
-                best_dist = d; 
+            
+            bool is_older;
+            int d = 0;
+            if (entries[i].store_commited) {
+                // 已经被ROB提交过的store，比还没提交的load更老，但一条store提交之后rob_head会跨过它，导致距离错
+                is_older = true;
+                d = -1; // 保证下面挑时优先级最高
+            } else {
+                d = age_distance(entries[i].tag, rob_head);
+                is_older = (d < load_dist);
+            }
+            if (!is_older) continue;
+ 
+            int compare_key = entries[i].store_commited ? load_dist : d;
+            if (best_idx == -1 || compare_key > best_dist) {
+                best_idx = i;
+                best_dist = compare_key;
             }
         }
         if (best_idx == -1) return false; // 没有更老的store了，无冲突
