@@ -17,3 +17,7 @@ void PC::step(bool mispredict, uint32_t correct_pc, bool issued, uint32_t predic
         pc_new = pc_old;
     }
 }
+
+uint32_t PC::get() const {
+    return pc_old;
+}
