@@ -79,7 +79,6 @@ void CPU::step_once() {
         flush_correct_pc = commit.correct_pc;
         is_mispredict = true;
     }
-
     int store_commit_tag = NO_TAG;
     if (commit.tag != NO_TAG && commit.type == RobType::STORE) {
         store_commit_tag = commit.tag;
@@ -295,7 +294,7 @@ void CPU::step_once() {
              lsq_qj, lsq_vj, lsq_imm, lsq_qk, lsq_vk, lsq_size, lsq_unsigned, 
              issue_to_lsq ? final_tag : NO_TAG, flush_tag, global_commit_counter);
     rob.step(cdb, branch_result.tag, branch_result.actual_jump, store_ready_tag, 
-             issue_valid, rob_issue_type, rob_issue_dest_reg, fetch_pc, rob_issue_target, rob_issue_predict);
+             issue_valid, rob_issue_type, rob_issue_dest_reg, fetch_pc, rob_issue_target, rob_issue_predict, flush_tag);
     reg_status.step(regs_status_clear_tag, issue_valid ? rob_issue_dest_reg : 0,
                     issue_valid ? final_tag : NO_TAG, flush_tag ,rob_head);
     reg_file.step(commit_regular, commit.dest_reg, commit.value);

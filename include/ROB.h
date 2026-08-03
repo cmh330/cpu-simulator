@@ -27,6 +27,7 @@ private:
     Rob rob_new[ROB_SIZE];
     int head_old, tail_old, count_old; // tail指向队尾下一个空位
     int head_new, tail_new, count_new;
+    static int age_distance(int tag, int rob_head);
 
 public:
     ROB();
@@ -55,6 +56,6 @@ public:
     CommitResult get_commit() const;
     void step(CdbBroadcast cdb, int branch_tag, bool branch_jump, int store_ready_tag,
               bool issue_valid, RobType issue_type, int issue_dest_reg,
-              uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump);
+              uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump, int flush_tag);
     void sync();
 };

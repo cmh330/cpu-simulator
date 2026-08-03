@@ -101,9 +101,13 @@ void ROB::sync() {
     count_old = count_new;
 }
 
+int ROB::age_distance(int tag, int rob_head) {
+    return (tag - rob_head + ROB_SIZE) % ROB_SIZE;
+}
+
 void ROB::step(CdbBroadcast cdb, int branch_tag, bool branch_jump, int store_ready_tag,
                bool issue_valid, RobType issue_type, int issue_dest_reg,
-               uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump) {
+               uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump, int flush_tag) {
     for (int i = 0; i < ROB_SIZE; ++i) rob_new[i] = rob_old[i];
     head_new = head_old; 
     tail_new = tail_old;
@@ -146,5 +150,19 @@ void ROB::step(CdbBroadcast cdb, int branch_tag, bool branch_jump, int store_rea
         rob_new[tag].actual_jump = false;
         tail_new = (tail_old + 1) % ROB_SIZE;
         ++count_new;
+    }
+
+    // flush
+    if (flush_tag != NO_TAG) {
+        int flush_distance = age_distance(flush_tag, head_old);
+        for (int i = 0; i < ROB_SIZE; ++i) {
+            if (rob_old[i].available) continue;
+            if (age_distance(i, head_old) > flush_distance) {
+                rob_new[i] = Rob();
+            }
+        }
+        // 清空rob队列（mispredict的分支一定在队首）
+        tail_new = head_new;
+        count_new = 0;
     }
 }
