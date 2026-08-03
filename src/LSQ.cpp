@@ -375,12 +375,19 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
     }
 }
 
-
-int LSQ::get_store_ready_tag() const {
+// 选离rob_head最近的(最老的那个)
+int LSQ::get_store_ready_tag(int rob_head) const {
+    int best_tag = NO_TAG;
+    int best_dist = -1;
     for (int i = 0; i < LSQ_SIZE; ++i) {
         const Lsq &l = lsq_old[i];
         if (l.available || !l.is_store) continue;
-        if (l.addr_ready && l.qk == NO_TAG) return l.tag;
+        if (!(l.addr_ready && l.qk == NO_TAG)) continue;
+        int d = age_distance(l.tag, rob_head);
+        if (best_tag == NO_TAG || d < best_dist) {
+            best_tag = l.tag;
+            best_dist = d;
+        }
     }
-    return NO_TAG;
+    return best_tag;
 }

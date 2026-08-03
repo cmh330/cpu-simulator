@@ -283,7 +283,7 @@ void CPU::step_once() {
     int final_tag = issue_valid ? predicted_tag : NO_TAG;
 
     // 3: step
-    int store_ready_tag = lsq.get_store_ready_tag();
+    int store_ready_tag = lsq.get_store_ready_tag(rob_head);
     int regs_status_clear_tag = commit_regular ? commit.tag : NO_TAG;
     rs.step(cdb, rs_op, rs_vj, rs_qj, rs_vk, rs_qk,
             issue_to_rs ? final_tag : NO_TAG, rs_is_branch,

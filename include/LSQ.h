@@ -54,5 +54,5 @@ public:
     void step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob_head,
               bool issue_is_store, int issue_qj, int32_t issue_vj, int32_t issue_imm,
               int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_head);
-    int get_store_ready_tag() const;
+    int get_store_ready_tag(int rob_head) const;
 };
