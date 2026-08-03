@@ -3,16 +3,24 @@
 #include "include/definitions.h"
 #include "include/alu.h"
 #include "include/storage.h"
+#include "include/cpu.h"
 
 const uint32_t END = 0x0ff00513;
 
 uint8_t run_naive(Storage &storage, int32_t registers[32]);
 
 int main() {
+    /*
     Storage storage;
     storage.load(std::cin);
     int32_t registers[32] = {0};
     uint8_t ans = run_naive(storage, registers);
+    std::cout << static_cast<int>(ans) << std::endl;
+    return 0;
+    */
+    CPU cpu;
+    cpu.load_program(std::cin);
+    uint8_t ans = cpu.run();
     std::cout << static_cast<int>(ans) << std::endl;
     return 0;
 }
