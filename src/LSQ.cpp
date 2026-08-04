@@ -80,26 +80,31 @@ int LSQ::age_distance(int tag, int rob_head) {
 
 bool LSQ::is_blocked_by_store(const Lsq entries[LSQ_SIZE], long load_seq, uint32_t load_addr, bool &forwarded, int32_t &forward_value) {
     forwarded = false;
-    long best_seq = -1;
-    int best_idx = -1;
-    for (int i = 0; i < LSQ_SIZE; ++i) {
-        if (entries[i].available || !entries[i].is_store) continue;
-        if (entries[i].global_seq >= load_seq) continue;   // 不比load老,跳过
-        if (best_idx == -1 || entries[i].global_seq > best_seq) {
-            best_idx = i;
-            best_seq = entries[i].global_seq;
+    bool visited[LSQ_SIZE] = {false};
+
+    for (int round = 0; round < LSQ_SIZE; ++round) {
+        long best_seq = -1;
+        int best_idx = -1;
+        for (int i = 0; i < LSQ_SIZE; ++i) {
+            if (visited[i] || entries[i].available || !entries[i].is_store) continue;
+            if (entries[i].global_seq >= load_seq) continue; // 不比load老，跳过
+            if (best_idx == -1 || entries[i].global_seq > best_seq) {
+                best_idx = i;
+                best_seq = entries[i].global_seq;
+            }
         }
+        if (best_idx == -1) return false; // 没有更老的store了，无冲突
+        visited[best_idx] = true;
+
+        if (!entries[best_idx].addr_ready) return true; // 最近的这个地址未知，必须等
+        if (entries[best_idx].addr == load_addr) {
+            if (entries[best_idx].qk != NO_TAG) return true; // 地址冲突但还没就绪
+            forwarded = true;
+            forward_value = entries[best_idx].vk;
+            return false;
+        }
+        // 地址不冲突，继续检查下一个更老的store
     }
-    if (best_idx == -1) return false; // 没有更老的store了，无冲突
- 
-    if (!entries[best_idx].addr_ready) return true; // 最近的这个地址未知，必须等
-    if (entries[best_idx].addr == load_addr) {
-        if (entries[best_idx].qk != NO_TAG) return true; // 地址冲突但值没就绪
-        forwarded = true;
-        forward_value = entries[best_idx].vk;
-        return false;
-    }
-        // 地址不冲突，继续检查下一个更老的
     return false;
 }
 
