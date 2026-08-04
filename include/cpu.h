@@ -30,6 +30,7 @@ private:
     bool halted = false;
     long cycles = 0;
     long global_commit_counter = 0;
+    long global_seq_counter = 0; // 每issue就加一
 
     static bool is_mem_op(Opcode op);
     static bool is_store_op(Opcode op);

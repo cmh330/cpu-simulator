@@ -19,6 +19,7 @@ struct Rob {
     bool predict_jump = false; // 预测是否跳转
     bool actual_jump = false; // 实际是否跳转
     RobType type = RobType::REGULAR;
+    long global_seq = -1;
 };
 
 class ROB {
@@ -56,6 +57,6 @@ public:
     CommitResult get_commit() const;
     void step(CdbBroadcast cdb, int branch_tag, bool branch_jump, int store_ready_tag,
               bool issue_valid, RobType issue_type, int issue_dest_reg,
-              uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump, int flush_tag);
+              uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump, int flush_tag, long issue_global_seq);
     void sync();
 };

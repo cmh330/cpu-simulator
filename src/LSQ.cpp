@@ -78,49 +78,28 @@ int LSQ::age_distance(int tag, int rob_head) {
     return (tag - rob_head + ROB_SIZE) % ROB_SIZE;
 }
 
-bool LSQ::is_blocked_by_store(const Lsq entries[LSQ_SIZE], int rob_head, int load_tag, uint32_t load_addr, bool &forwarded, int32_t &forward_value) {
+bool LSQ::is_blocked_by_store(const Lsq entries[LSQ_SIZE], long load_seq, uint32_t load_addr, bool &forwarded, int32_t &forward_value) {
     forwarded = false;
-    int load_dist = age_distance(load_tag, rob_head);
-    bool visited[LSQ_SIZE] = {false};
- 
-    for (int round = 0; round < LSQ_SIZE; ++round) {
-        int best_idx = -1, best_dist = -1;
-        for (int i = 0; i < LSQ_SIZE; ++i) {
-            if (visited[i] || entries[i].available || !entries[i].is_store) continue;
-            
-            bool is_older;
-            int d = 0;
-            if (entries[i].store_commited) {
-                // 已经被ROB提交过的store，比还没提交的load更老，但一条store提交之后rob_head会跨过它，导致距离错
-                is_older = true;
-                d = -1; // 保证下面挑时优先级最高
-            } else {
-                d = age_distance(entries[i].tag, rob_head);
-                is_older = (d < load_dist);
-            }
-            if (!is_older) continue;
- 
-            int compare_key = entries[i].store_commited ? load_dist : d;
-            if (entries[i].store_commited) {
-                compare_key = 1000000 + entries[i].commit_order;
-            } else compare_key = d;
-            if (best_idx == -1 || compare_key > best_dist) {
-                best_idx = i;
-                best_dist = compare_key;
-            }
+    long best_seq = -1;
+    int best_idx = -1;
+    for (int i = 0; i < LSQ_SIZE; ++i) {
+        if (entries[i].available || !entries[i].is_store) continue;
+        if (entries[i].global_seq >= load_seq) continue;   // 不比load老,跳过
+        if (best_idx == -1 || entries[i].global_seq > best_seq) {
+            best_idx = i;
+            best_seq = entries[i].global_seq;
         }
-        if (best_idx == -1) return false; // 没有更老的store了，无冲突
-        visited[best_idx] = true;
- 
-        if (!entries[best_idx].addr_ready) return true; // 最近的这个地址未知，必须等
-        if (entries[best_idx].addr == load_addr) {
-            if (entries[best_idx].qk != NO_TAG) return true; // 地址冲突但值没就绪
-            forwarded = true;
-            forward_value = entries[best_idx].vk;
-            return false;
-        }
-        // 地址不冲突，继续检查下一个更老的
     }
+    if (best_idx == -1) return false; // 没有更老的store了，无冲突
+ 
+    if (!entries[best_idx].addr_ready) return true; // 最近的这个地址未知，必须等
+    if (entries[best_idx].addr == load_addr) {
+        if (entries[best_idx].qk != NO_TAG) return true; // 地址冲突但值没就绪
+        forwarded = true;
+        forward_value = entries[best_idx].vk;
+        return false;
+    }
+        // 地址不冲突，继续检查下一个更老的
     return false;
 }
 
@@ -233,7 +212,7 @@ int LSQ::tag_of(int idx) const {
 */
 
 // 倒计时到0 / forward成功
-CdbBroadcast LSQ::get_broadcast(const Storage& storage, int rob_head) const {
+CdbBroadcast LSQ::get_broadcast(const Storage& storage) const {
     for (int i = 0; i < LSQ_SIZE; ++i) {
         const Lsq &l = lsq_old[i];
         if (l.available || l.is_store) continue;
@@ -244,7 +223,7 @@ CdbBroadcast LSQ::get_broadcast(const Storage& storage, int rob_head) const {
         if (l.remaining_cycles == -1 && l.addr_ready) {
             bool forwarded = false; 
             int32_t fv = 0;
-            bool blocked = is_blocked_by_store(lsq_old, rob_head, l.tag, l.addr, forwarded, fv);
+            bool blocked = is_blocked_by_store(lsq_old, l.global_seq, l.addr, forwarded, fv);
             if (!blocked && forwarded) {
                 return CdbBroadcast{l.tag, apply_load_sign(fv, l.size, l.is_unsigned)};
             }
@@ -259,14 +238,15 @@ void LSQ::sync() {
 }
 
 // store_commit_tag: 此刻ROB通知这个标签的store可以写内存了，NO_TAG表示没有
-void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob_head,
+void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, 
                bool issue_is_store, int issue_qj, int32_t issue_vj, int32_t issue_imm,
-               int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_tag, long global_commit_counter) {
+               int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, 
+               int flush_tag, long flush_seq, long issue_global_seq, long global_commit_counter) {
     for (int i = 0; i < LSQ_SIZE; ++i) lsq_new[i] = lsq_old[i];
     count_new = count_old;
 
     // cdb广播的是不是某条load
-    CdbBroadcast my_candidate = get_broadcast(storage, rob_head);
+    CdbBroadcast my_candidate = get_broadcast(storage);
     
     if (my_candidate.tag != NO_TAG_CDB && my_candidate.tag == cdb.tag) {
         for (int i = 0; i < LSQ_SIZE; ++i) {
@@ -300,7 +280,7 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
         for (int i = 0; i < LSQ_SIZE; ++i) {
             if (lsq_old[i].tag == store_commit_tag && !lsq_old[i].available && lsq_old[i].is_store) {
                 lsq_new[i].store_commited = true;
-                lsq_new[i].commit_order = global_commit_counter;
+                // lsq_new[i].commit_order = global_commit_counter;
             }
         }
     }
@@ -320,7 +300,7 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
         // load
         bool forwarded = false;
         int32_t forward_value = 0;
-        bool blocked = is_blocked_by_store(lsq_old, rob_head, cur.tag, cur.addr, forwarded, forward_value);
+        bool blocked = is_blocked_by_store(lsq_old, cur.global_seq, cur.addr, forwarded, forward_value);
         if (blocked) continue;
         if (forwarded) continue; // 已经在第一步处理过
         lsq_new[i].remaining_cycles = CYCLES - 1;
@@ -358,6 +338,7 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
                 lsq_new[i].tag = issue_tag;
                 lsq_new[i].store_commited = false;
                 lsq_new[i].remaining_cycles = -1;
+                lsq_new[i].global_seq = issue_global_seq;
                 ++count_new;
                 break;
             }
@@ -366,10 +347,9 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
 
     // flush: 所有比flush_tag年轻的都要flush
     if (flush_tag != NO_TAG) {
-        int flush_distance = age_distance(flush_tag, rob_head);
         for (int i = 0; i < LSQ_SIZE; ++i) {
             if (lsq_old[i].available) continue;
-            if (age_distance(lsq_old[i].tag, rob_head) > flush_distance) {
+            if (lsq_old[i].global_seq > flush_seq) {
                 if (!lsq_new[i].available) {
                     lsq_new[i] = Lsq();
                     --count_new;
@@ -380,17 +360,16 @@ void LSQ::step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob
 }
 
 // 选离rob_head最近的(最老的那个)
-int LSQ::get_store_ready_tag(int rob_head) const {
+int LSQ::get_store_ready_tag() const {
     int best_tag = NO_TAG;
-    int best_dist = -1;
+    long best_seq = -1;
     for (int i = 0; i < LSQ_SIZE; ++i) {
         const Lsq &l = lsq_old[i];
         if (l.available || !l.is_store) continue;
         if (!(l.addr_ready && l.qk == NO_TAG)) continue;
-        int d = age_distance(l.tag, rob_head);
-        if (best_tag == NO_TAG || d < best_dist) {
+        if (best_tag == NO_TAG || l.global_seq < best_seq) {
             best_tag = l.tag;
-            best_dist = d;
+            best_seq = l.global_seq;
         }
     }
     return best_tag;

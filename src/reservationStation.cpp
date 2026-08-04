@@ -85,7 +85,7 @@ CdbBroadcast RSGroup::get_broadcast() const {
 
 void RSGroup::step(CdbBroadcast cdb, AluOp issue_op, int32_t issue_vj, int issue_qj,
                    int32_t issue_vk, int issue_qk, int issue_dest, bool issue_is_branch, 
-                   int flush_tag, int rob_head) {
+                   int flush_tag, long flush_seq, long issue_global_seq) {
     for (int i = 0; i < NUM_RS; ++i) rs_new[i] = rs_old[i];
 
     // 看cdb能不能释放rs槽位
@@ -135,6 +135,7 @@ void RSGroup::step(CdbBroadcast cdb, AluOp issue_op, int32_t issue_vj, int issue
                 rs_new[i].vk = issue_vk;
                 rs_new[i].qk = issue_qk;
                 rs_new[i].is_branch = issue_is_branch;
+                rs_new[i].global_seq = issue_global_seq;
                 break;
             }
         }
@@ -142,10 +143,9 @@ void RSGroup::step(CdbBroadcast cdb, AluOp issue_op, int32_t issue_vj, int issue
 
     // flush
     if (flush_tag != NO_TAG) {
-        int flush_dist = age_distance(flush_tag, rob_head);
         for (int i = 0; i < NUM_RS; ++i) {
             if (rs_old[i].available) continue;
-            if (age_distance(rs_old[i].dest, rob_head) > flush_dist) {
+            if (rs_old[i].global_seq > flush_seq) {
                 rs_new[i] = RS();
             }
         }

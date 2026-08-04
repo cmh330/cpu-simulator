@@ -74,10 +74,12 @@ void CPU::step_once() {
     int flush_tag = NO_TAG;
     uint32_t flush_correct_pc = 0;
     bool is_mispredict = false;
+    long flush_seq = -1;
     if (commit.tag != NO_TAG && commit.type == RobType::BRANCH && commit.mispredict) {
         flush_tag = commit.tag;
         flush_correct_pc = commit.correct_pc;
         is_mispredict = true;
+        flush_seq = rob.get(commit.tag).global_seq;
     }
     int store_commit_tag = NO_TAG;
     if (commit.tag != NO_TAG && commit.type == RobType::STORE) {
@@ -90,7 +92,7 @@ void CPU::step_once() {
     BranchResult branch_result = rs.get_branch_result();
 
     CdbBroadcast from_rs = rs.get_broadcast();
-    CdbBroadcast from_lsq = lsq.get_broadcast(storage, rob_head);
+    CdbBroadcast from_lsq = lsq.get_broadcast(storage);
     CdbBroadcast cdb = Cdb::choose(from_rs, from_lsq);
 
     // 2: issue, mispredict的话不发布
@@ -281,22 +283,28 @@ void CPU::step_once() {
 
     int final_tag = issue_valid ? predicted_tag : NO_TAG;
 
+    long this_issue_seq = -1;
+    if (issue_valid) {
+        this_issue_seq = global_seq_counter++;
+    }
+
     // 3: step
-    int store_ready_tag = lsq.get_store_ready_tag(rob_head);
+    int store_ready_tag = lsq.get_store_ready_tag();
     int regs_status_clear_tag = commit_regular ? commit.tag : NO_TAG;
     rs.step(cdb, rs_op, rs_vj, rs_qj, rs_vk, rs_qk,
             issue_to_rs ? final_tag : NO_TAG, rs_is_branch,
-            flush_tag, rob_head);
+            flush_tag, flush_seq, issue_to_rs ? this_issue_seq : -1);
     if (store_commit_tag != NO_TAG) {
         ++global_commit_counter;
     }
-    lsq.step(storage, cdb, store_commit_tag, rob_head, lsq_is_store, 
+    lsq.step(storage, cdb, store_commit_tag, lsq_is_store, 
              lsq_qj, lsq_vj, lsq_imm, lsq_qk, lsq_vk, lsq_size, lsq_unsigned, 
-             issue_to_lsq ? final_tag : NO_TAG, flush_tag, global_commit_counter);
+             issue_to_lsq ? final_tag : NO_TAG, flush_tag, flush_seq, issue_to_lsq ? this_issue_seq : -1, global_commit_counter);
     rob.step(cdb, branch_result.tag, branch_result.actual_jump, store_ready_tag, 
-             issue_valid, rob_issue_type, rob_issue_dest_reg, fetch_pc, rob_issue_target, rob_issue_predict, flush_tag);
+             issue_valid, rob_issue_type, rob_issue_dest_reg, fetch_pc, 
+             rob_issue_target, rob_issue_predict, flush_tag, this_issue_seq);
     reg_status.step(regs_status_clear_tag, issue_valid ? rob_issue_dest_reg : 0,
-                    issue_valid ? final_tag : NO_TAG, flush_tag ,rob_head);
+                    issue_valid ? final_tag : NO_TAG, flush_tag, flush_seq, this_issue_seq);
     reg_file.step(commit_regular, commit.dest_reg, commit.value);
     bp.step(commit_branch, commit.type==RobType::BRANCH ? rob.get(commit.tag).pc : 0,
             commit.type==RobType::BRANCH ? rob.get(commit.tag).predict_jump : false,

@@ -15,6 +15,7 @@ struct RS{
     int dest = NO_TAG_RS; // 交给谁
     // qj, qk, dest都是ROB队列的下标
     bool is_branch = false;
+    long global_seq = -1;
 };
 
 // 不走cdb（不需要写寄存器），直接告诉rob
@@ -42,6 +43,6 @@ public:
     BranchResult get_branch_result() const; 
     void step(CdbBroadcast cdb, AluOp issue_op, int32_t issue_vj, int issue_qj,
               int32_t issue_vk, int issue_qk, int issue_dest, bool issue_is_branch, 
-              int flush_tag, int rob_head);
+              int flush_tag, long flush_seq, long issue_global_seq);
     void sync();
 };

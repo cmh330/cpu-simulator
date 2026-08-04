@@ -20,7 +20,8 @@ struct Lsq {
     int tag = NO_TAG; // 发布时ROB分配的标签，load：用tag广播结果，store：看是否轮到提交
     bool store_commited = false; // store时才用，记录ROB是否已经允许他真正写内存
     int remaining_cycles = -1; // >= 0才开始访问内存
-    int commit_order = -1; 
+    // int commit_order = -1;
+    long global_seq = -1;
 };
 
 class LSQ {
@@ -33,7 +34,7 @@ private:
 
     static int age_distance(int tag, int rob_head);
     // 返回true：被挡住，load要等；返回false & forwarded = true，没被挡，forward_value里是值；返回false & forwarded = false，没被挡，无冲突
-    static bool is_blocked_by_store(const Lsq entries[LSQ_SIZE], int rob_head, int load_tag, uint32_t load_addr, bool &forwarded, int32_t &forward_value);
+    static bool is_blocked_by_store(const Lsq entries[LSQ_SIZE], long load_seq, uint32_t load_addr, bool &forwarded, int32_t &forward_value);
 
     static int32_t apply_load_sign(int32_t raw_value, int size, bool is_unsigned);
     static void write(Storage &storage, uint32_t addr, int32_t value, int size);
@@ -50,10 +51,11 @@ public:
     // void clear(int idx);
     // bool is_occupied(int idx) const;
     // int tag_of(int idx) const;
-    CdbBroadcast get_broadcast(const Storage& storage, int rob_head) const;
+    CdbBroadcast get_broadcast(const Storage& storage) const;
     void sync();
-    void step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, int rob_head,
+    void step(Storage& storage, CdbBroadcast cdb, int store_commit_tag, 
               bool issue_is_store, int issue_qj, int32_t issue_vj, int32_t issue_imm,
-              int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, int flush_head, long global_commit_counter);
-    int get_store_ready_tag(int rob_head) const;
+              int issue_qk, int32_t issue_vk, int issue_size, bool issue_unsigned, int issue_tag, 
+              int flush_tag, long flush_seq, long issue_global_seq, long global_commit_counter);
+    int get_store_ready_tag() const;
 };
