@@ -107,7 +107,7 @@ int ROB::age_distance(int tag, int rob_head) {
 
 void ROB::step(CdbBroadcast cdb, int branch_tag, bool branch_jump, int store_ready_tag,
                bool issue_valid, RobType issue_type, int issue_dest_reg,
-               uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump, int flush_tag) {
+               uint32_t issue_pc, uint32_t issue_target, bool issue_predict_jump, int flush_tag, long issue_global_seq) {
     for (int i = 0; i < ROB_SIZE; ++i) rob_new[i] = rob_old[i];
     head_new = head_old; 
     tail_new = tail_old;
@@ -148,16 +148,17 @@ void ROB::step(CdbBroadcast cdb, int branch_tag, bool branch_jump, int store_rea
         rob_new[tag].target = issue_target;
         rob_new[tag].predict_jump = issue_predict_jump;
         rob_new[tag].actual_jump = false;
+        rob_new[tag].global_seq = issue_global_seq;
         tail_new = (tail_old + 1) % ROB_SIZE;
         ++count_new;
     }
 
     // flush
     if (flush_tag != NO_TAG) {
-        int flush_distance = age_distance(flush_tag, head_old);
+        long flush_seq = rob_old[flush_tag].global_seq;
         for (int i = 0; i < ROB_SIZE; ++i) {
             if (rob_old[i].available) continue;
-            if (age_distance(i, head_old) > flush_distance) {
+            if (rob_old[i].global_seq > flush_seq) {
                 rob_new[i] = Rob();
             }
         }
