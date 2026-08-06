@@ -297,19 +297,19 @@ void CPU::step_once() {
     rs.step(cdb, rs_op, rs_vj, rs_qj, rs_vk, rs_qk,
             issue_to_rs ? final_tag : NO_TAG, rs_is_branch,
             flush_tag, flush_seq, issue_to_rs ? this_issue_seq : -1);
+    reg_status.step(regs_status_clear_tag, issue_valid ? rob_issue_dest_reg : 0,
+                    issue_valid ? final_tag : NO_TAG, flush_tag, flush_seq, this_issue_seq);
     rob.step(cdb, branch_result.tag, branch_result.actual_jump, store_ready_tag, 
              issue_valid, rob_issue_type, rob_issue_dest_reg, fetch_pc, 
              rob_issue_target, rob_issue_predict, flush_tag, this_issue_seq);
+    bp.step(commit_branch, commit.type==RobType::BRANCH ? rob.get(commit.tag).pc : 0,
+            commit.type==RobType::BRANCH ? rob.get(commit.tag).predict_jump : false,
+            commit.type==RobType::BRANCH ? rob.get(commit.tag).actual_jump : false);
+    reg_file.step(commit_regular, commit.dest_reg, commit.value);
     lsq.step(storage, cdb, store_commit_tag, lsq_is_store, 
              lsq_qj, lsq_vj, lsq_imm, lsq_qk, lsq_vk, lsq_size, lsq_unsigned, 
              issue_to_lsq ? final_tag : NO_TAG, flush_tag, flush_seq, 
              issue_to_lsq ? this_issue_seq : -1, global_commit_counter);
-    reg_status.step(regs_status_clear_tag, issue_valid ? rob_issue_dest_reg : 0,
-                    issue_valid ? final_tag : NO_TAG, flush_tag, flush_seq, this_issue_seq);
-    reg_file.step(commit_regular, commit.dest_reg, commit.value);
-    bp.step(commit_branch, commit.type==RobType::BRANCH ? rob.get(commit.tag).pc : 0,
-            commit.type==RobType::BRANCH ? rob.get(commit.tag).predict_jump : false,
-            commit.type==RobType::BRANCH ? rob.get(commit.tag).actual_jump : false);
     pc.step(is_mispredict, flush_correct_pc, issue_valid, next_pc_if_issued);
 
     // 4: sync

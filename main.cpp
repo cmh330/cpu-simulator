@@ -5,6 +5,10 @@
 #include "include/storage.h"
 #include "include/cpu.h"
 
+// g++ -std=c++17 -o code main.cpp src/*.cpp -Iinclude
+// ./code < 下发/data/testcases/array_test1.data
+// ./run_all_tests.sh ./code 下发/data/testcases
+
 const uint32_t END = 0x0ff00513;
 
 uint8_t run_naive(Storage &storage, int32_t registers[32]);
@@ -15,13 +19,15 @@ int main() {
     storage.load(std::cin);
     int32_t registers[32] = {0};
     uint8_t ans = run_naive(storage, registers);
-    std::cout << static_cast<int>(ans) << std::endl;
-    return 0;
+    std::cout << "naive: " << static_cast<int>(ans) << std::endl;
     */
+    
     CPU cpu;
     cpu.load_program(std::cin);
-    uint8_t ans = cpu.run();
-    std::cout << static_cast<int>(ans) << std::endl;
+    uint8_t result = cpu.run();
+    std::cout << static_cast<int>(result) << std::endl;
+    // std::cout << "accuracy: " << cpu.branch_accuracy() << std::endl;
+    // std::cerr << "CYCLES:" << cpu.cycle_count() << std::endl;
     return 0;
 }
 
